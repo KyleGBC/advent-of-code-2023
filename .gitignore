@@ -1,2 +1,10 @@
+# Builds
 /*/target
+
+# Puzzle Input
 *.txt
+
+# Profiling
+*.data
+*.data.old
+*.svg

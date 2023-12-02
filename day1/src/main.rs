@@ -38,7 +38,7 @@ fn part2(input: &str) -> i32 {
                 .map(|(i, s)| (i, s.chars().next().unwrap())),
         );
         digit_matches.sort_by(|(i, _), (i2, _)| i.cmp(i2));
-        let digit_matches: Vec<char> = digit_matches.into_iter().map(|(i, c)| c).collect();
+        let digit_matches: Vec<char> = digit_matches.into_iter().map(|(_, c)| c).collect();
 
         let mut num_str = digit_matches.first().unwrap().to_string();
         num_str.push(*digit_matches.last().unwrap());
