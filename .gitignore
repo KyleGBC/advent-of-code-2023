@@ -8,3 +8,6 @@
 *.data
 *.data.old
 *.svg
+
+# IDE
+*/.vscode

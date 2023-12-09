@@ -1,7 +1,5 @@
-use rayon::prelude::*;
-
+#[derive(Copy, Clone, Debug)]
 struct SeedRange { start: u64, end: u64 }
-
 
 #[derive(Debug, Clone)]
 struct Map { dest: u64, src: u64, len: u64 }
@@ -18,9 +16,9 @@ impl Map
     fn map_seed(&self, seed: u64) -> Option<u64>
     { 
         let diff = seed.checked_sub(self.src)?;
-        return if diff > self.len { None } else { Some(self.dest + diff) }
+        return if diff > (self.len - 1) { None } else { Some(self.dest + diff) }
     }
-    fn contains(self, seed: u64) -> bool { return self.src <= seed && seed <= self.src + self.len }
+    fn contains(&self, seed: u64) -> bool { return self.src <= seed && seed <= self.src + self.len - 1 }
 }
 type Layer = Vec<Map>;
 
@@ -36,31 +34,56 @@ fn map_seed_almanac(mut seed: u64, layers: &Vec<Layer>) -> u64
     seed
 }
 
-fn process_range_layer(mut range: SeedRange, layer: &Layer) -> Vec<SeedRange>
+fn process_range_layer(mut ranges: Vec<SeedRange>, layer: &Layer) -> Vec<SeedRange>
 {
-    let mut ranges = Vec::new();
-    let i = 0;
-    while i < ranges.len()
+    let mut idx = 0;
+    while idx < ranges.len()
     {
-        let current_range = ranges[i];
-
         for map in layer
         {
-           // Five cases:
-           // Case 1: Wholly contained withing mapping range
-           // Case 2 Left contained, right not contained
-           // Case 3: Right contained, left not contained
-           // Case 4: Mapping contained wholly withing seed range, necessitates three-way split
-           // Case 5: No overlap
+            let current_range = ranges[idx];
+            // Five cases: 
+            // Case 1: Wholly contained within mapping range
+            if map.contains(current_range.start) && map.contains(current_range.end)
+            { 
+                ranges[idx] = SeedRange { start: map.map_seed(current_range.start).unwrap(), end: map.map_seed(current_range.end).unwrap() };
+                break;
+            }
+            // Case 2 Left contained, right not contained 
+            else if map.contains(current_range.start) && !map.contains(current_range.end)
+            {
+                let midpoint = map.src + map.len - 1;
+                ranges[idx] = SeedRange { start: map.map_seed(current_range.start).unwrap(), end: map.map_seed(midpoint).unwrap() };
+                ranges.push(SeedRange { start: midpoint + 1, end: current_range.end });
+                break;
+            }
+            // Case 3: Right contained, left not contained
+            else if !map.contains(current_range.start) && map.contains(current_range.end)
+            {
+                ranges.push(SeedRange { start: current_range.start, end: map.src - 1 });
+                ranges[idx] = SeedRange { start: map.dest, end: map.map_seed(current_range.end).unwrap() };
+                break;
+            }
+            // Case 4: Mapping contained wholly withing seed range, necessitates three-way split
+            else if current_range.start <= map.src && current_range.end >= map.src + map.len - 1
+            {
+                ranges.push(SeedRange { start:  current_range.start, end: map.src - 1});
+                ranges[idx] = SeedRange { start: map.dest, end: map.dest + map.len - 1 };
+                ranges.push(SeedRange { start: map.src + map.len - 1, end: current_range.end });
+                break;
+            }   
+            // Case 5: No overlap, try the rest of the maps
         }
+        idx += 1;   
     }
     ranges
 }
 
-fn process_range(mut range: SeedRange, layers: &Vec<Layer>) -> Vec<SeedRange>
+fn process_range(range: SeedRange, layers: &Vec<Layer>) -> Vec<SeedRange>
 {
     let mut ranges = Vec::new();
-    for layer in layers { ranges = process_range_layer(range, layer); }
+    ranges.push(range);
+    for layer in layers { ranges = process_range_layer(ranges, layer) }
     ranges
 }
 
@@ -93,11 +116,7 @@ fn main() {
     layers.push(layer);
     
     let part1 = seeds.iter().map(|s| map_seed_almanac(*s, &layers)).min().unwrap();
-
-    let mut seed_ranges: Vec<SeedRange> = seeds.chunks(2).map(|v| SeedRange { start: v[0], end: v[1] }).map(|s| process_range(s, &layers)).flatten().collect();
-
-
-    
+    let part2 = seeds.chunks(2).map(|v| SeedRange { start: v[0], end: v[0] + v[1] - 1}).map(|s| process_range(s, &layers)).flatten().map(|sr| sr.start).min().unwrap();
     println!("{part1}, {part2} in {:?}", time.elapsed());
 
 }
